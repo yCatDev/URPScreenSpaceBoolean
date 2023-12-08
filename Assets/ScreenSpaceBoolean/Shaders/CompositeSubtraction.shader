@@ -1,63 +1,65 @@
-﻿Shader "ScreenSpaceBoolean/CompositeSubtraction"
+﻿Shader "Universal Render Pipeline/ScreenSpaceBoolean/CompositeSubtraction"
 {
 
-SubShader
-{
+    SubShader
+    {
+        Tags
+        {
+            "RenderPipeline"="UniversalPipeline" "Queue"="Geometry"
+        }
 
-CGINCLUDE
+        HLSLINCLUDE
+        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+        #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
-sampler2D _SubtractionDepth;
 
-struct appdata
-{
-    float4 vertex : POSITION;
-};
+        struct input
+        {
+            float4 vertex : POSITION;
+        };
 
-struct v2f
-{
-    float4 vertex : SV_POSITION;
-    float4 spos   : TEXCOORD0;
-};
+        struct output
+        {
+            float4 vertex : SV_POSITION;
+            float4 spos : TEXCOORD0;
+        };
 
-struct gbuffer_out
-{
-    half4 color : SV_Target;
-    float depth : SV_Depth;
-};
+        TEXTURE2D(_SubtractionDepth);
+        SAMPLER(sampler_SubtractionDepth);
 
-v2f vert(appdata v)
-{
-    v2f o;
-    o.vertex = o.spos = v.vertex;
-    o.spos.y *= _ProjectionParams.x;
-    return o;
-}
 
-gbuffer_out frag(v2f i)
-{
-    float2 uv = i.spos.xy * 0.5 + 0.5;
+        output vert(input v)
+        {
+            output o;
+            o.vertex = o.spos = v.vertex;
+            o.spos.y *= _ProjectionParams.x;
+            return o;
+        }
+        
 
-    gbuffer_out o;
-    o.color = o.depth = tex2D(_SubtractionDepth, uv).x;
-    if (o.depth == 1.0) discard;
+        float depth(output i) : SV_Target
+        {
+            float2 uv = i.spos.xy * 0.5 + 0.5;
 
-    return o;
-}
+            float d = SAMPLE_TEXTURE2D(_SubtractionDepth, sampler_SubtractionDepth, uv).x;
+            if (d == 1.0) discard;
 
-ENDCG
+            return d;
+        }
+        ENDHLSL
 
-Pass 
-{
-    Cull Off
-    ZTest LEqual
-    ZWrite On
-    ColorMask 0
+        Pass
+        {
+            Cull Off
+            ZTest LEqual
+            ZWrite On
+            ColorMask 0
 
-    CGPROGRAM
-    #pragma vertex vert
-    #pragma fragment frag
-    ENDCG
-}
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment depth
+            ENDHLSL
+        }
 
-}
+    }
 }

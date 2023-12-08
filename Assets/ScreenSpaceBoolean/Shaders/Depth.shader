@@ -1,71 +1,75 @@
-﻿Shader "ScreenSpaceBoolean/Depth"
+﻿Shader "Universal Render Pipeline/ScreenSpaceBoolean/Depth"
 {
 
-SubShader
-{
+    SubShader
+    {
+        Tags
+        {
+            "RenderPipeline"="UniversalPipeline" "Queue"="Geometry"
+        }
 
-CGINCLUDE
+        HLSLINCLUDE
+        #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+        #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 
-#include "UnityCG.cginc"
 
-float ComputeDepth(float4 spos)
-{
-#if defined(UNITY_UV_STARTS_AT_TOP)
-    return (spos.z / spos.w);
-#else
-    return (spos.z / spos.w) * 0.5 + 0.5;
-#endif
-}
+        struct input
+        {
+            float4 vertex : POSITION;
+        };
 
-struct appdata
-{
-    float4 vertex : POSITION;
-};
+        struct output
+        {
+            float4 vertex : SV_POSITION;
+            float4 spos : TEXCOORD0;
+        };
 
-struct v2f
-{
-    float4 vertex : SV_POSITION;
-    float4 spos : TEXCOORD0;
-};
+        float ComputeDepth(float4 spos)
+        {
+            #if defined(UNITY_UV_STARTS_AT_TOP)
+                return (spos.z / spos.w);
+            #else
+                return (spos.z / spos.w) * 0.5 + 0.5;
+            #endif
+        }
 
-v2f vert(appdata v)
-{
-    v2f o;
-    o.vertex = UnityObjectToClipPos(v.vertex);
-    o.spos = ComputeScreenPos(o.vertex);
-    return o;
-}
+        output vert(input v)
+        {
+            output o;
+            o.vertex = TransformObjectToHClip(v.vertex);
+            o.spos = ComputeScreenPos(o.vertex);
+            return o;
+        }
 
-float4 frag(v2f i) : SV_Target
-{
-    return ComputeDepth(i.spos);
-}
+        float4 frag(output i) : SV_Target
+        {
+            return ComputeDepth(i.spos);
+        }
+        ENDHLSL
 
-ENDCG
+        Pass
+        {
+            Cull Back
+            ZTest Less
+            ZWrite On
 
-Pass
-{
-    Cull Back
-    ZTest Less
-    ZWrite On
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            ENDHLSL
+        }
 
-    CGPROGRAM
-    #pragma vertex vert
-    #pragma fragment frag
-    ENDCG
-}
+        Pass
+        {
+            Cull Front
+            ZTest Greater
+            ZWrite On
 
-Pass
-{
-    Cull Front
-    ZTest Greater
-    ZWrite On
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            ENDHLSL
+        }
 
-    CGPROGRAM
-    #pragma vertex vert
-    #pragma fragment frag
-    ENDCG
-}
-
-}
+    }
 }
